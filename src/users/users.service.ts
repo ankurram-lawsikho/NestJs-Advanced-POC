@@ -13,7 +13,7 @@ export class UsersService {
     private usersRepository: Repository<UserEntity>,
   ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(createUserDto: CreateUserDto): Promise<PublicUser> {
     const existingUser = await this.findByEmail(createUserDto.email);
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
@@ -24,7 +24,9 @@ export class UsersService {
       permissions: createUserDto.permissions || [],
     });
 
-    return await this.usersRepository.save(user);
+    const savedUser = await this.usersRepository.save(user);
+    const { password, ...userWithoutPassword } = savedUser;
+    return userWithoutPassword as PublicUser;
   }
 
   async findAll(): Promise<PublicUser[]> {
@@ -35,12 +37,13 @@ export class UsersService {
     });
   }
 
-  async findById(id: string): Promise<User> {
+  async findById(id: string): Promise<PublicUser> {
     const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-    return user;
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword as PublicUser;
   }
 
   async findByEmail(email: string): Promise<User | null> {
@@ -48,17 +51,27 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<PublicUser> {
-    const user = await this.findById(id);
+    // Check if user exists
+    const existingUser = await this.usersRepository.findOne({ where: { id } });
+    if (!existingUser) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     
     await this.usersRepository.update(id, updateUserDto);
     
-    const updatedUser = await this.findById(id);
+    const updatedUser = await this.usersRepository.findOne({ where: { id } });
+    if (!updatedUser) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     const { password, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword as PublicUser;
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findById(id);
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
     await this.usersRepository.remove(user);
   }
 

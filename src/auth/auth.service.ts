@@ -30,6 +30,10 @@ export class AuthService {
   }
 
   async login(user: PublicUser) {
+    if (!user) {
+      throw new UnauthorizedException('Invalid user');
+    }
+    
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
