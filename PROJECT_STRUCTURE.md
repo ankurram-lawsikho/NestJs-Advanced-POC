@@ -18,33 +18,81 @@ nestjs-adv-poc/
 │   │   └── auth.module.ts           # Auth module configuration
 │   ├── 📁 users/                    # Users module
 │   │   ├── 📁 dto/                  # User DTOs
+│   │   ├── 📁 entities/             # TypeORM entities
 │   │   ├── users.controller.ts      # User endpoints
 │   │   ├── users.service.ts         # User business logic
 │   │   ├── users.service.spec.ts    # User service unit tests
 │   │   └── users.module.ts          # User module configuration
+│   ├── 📁 database/                 # Database configuration
+│   │   ├── database.module.ts       # TypeORM configuration
+│   │   └── seed.service.ts          # Database seeding service
+│   ├── 📁 security/                 # Security configuration
+│   │   └── security.config.ts       # Helmet and CORS settings
 │   ├── 📁 common/                   # Shared utilities
 │   │   ├── 📁 decorators/           # Custom decorators
 │   │   ├── 📁 filters/              # Exception filters
 │   │   ├── 📁 guards/               # Custom guards
+│   │   ├── 📁 middleware/           # Security and rate limiting middleware
 │   │   └── 📁 types/                # Type definitions
 │   ├── app.controller.ts            # Root controller
 │   ├── app.service.ts               # Root service
 │   ├── app.module.ts                # Root module
 │   └── main.ts                      # Application entry point
-├── 📁 test/                         # End-to-end tests
+├── 📁 test/                         # End-to-end tests and scripts
+│   ├── 📁 scripts/                  # Database setup and reset scripts
+│   │   ├── setup-test-db.js         # Test database setup
+│   │   ├── reset-test-db.js         # Test database reset
+│   │   └── setup-db.md              # Database setup documentation
 │   ├── app.e2e-spec.ts             # App E2E tests
 │   ├── auth.e2e-spec.ts            # Auth E2E tests
 │   ├── users.e2e-spec.ts           # Users E2E tests
+│   ├── test-app.module.ts          # Test application module
+│   ├── test-database.module.ts     # Test database configuration
 │   └── jest-e2e.json               # E2E test configuration
 ├── package.json                     # Dependencies and scripts
 ├── tsconfig.json                    # TypeScript configuration
 ├── nest-cli.json                    # NestJS CLI configuration
 ├── env.example                      # Environment variables template
 ├── .gitignore                       # Git ignore rules
+├── SECURITY.md                      # Security documentation
 └── README.md                        # Project documentation
 ```
 
 ---
+
+Permission Heirarchy by Role
+
+ADMIN (All Permissions)
+├── read:users ✅
+├── write:users ✅
+├── delete:users ✅
+├── read:profile ✅
+├── write:profile ✅
+└── manage:system ✅
+
+MANAGER (User Management)
+├── read:users ✅
+├── write:users ✅
+├── delete:users ❌
+├── read:profile ✅
+├── write:profile ✅
+└── manage:system ❌
+
+USER (Self Management)
+├── read:users ❌
+├── write:users ❌
+├── delete:users ❌
+├── read:profile ✅
+├── write:profile ✅
+└── manage:system ❌
+
+GUEST (No Access)
+├── read:users ❌
+├── write:users ❌
+├── delete:users ❌
+├── read:profile ❌
+├── write:profile ❌
+└── manage:system ❌
 
 ## 📄 File Documentation
 
@@ -91,17 +139,19 @@ nestjs-adv-poc/
 - **Purpose**: Application bootstrap and configuration
 - **Key Features**:
   - Creates NestJS application
-  - Sets up global validation pipe
+  - Sets up Helmet.js security middleware
+  - Configures global validation pipe
   - Configures global exception filter
-  - Sets up Swagger documentation
-  - Enables CORS
+  - Sets up Swagger documentation at `/api-docs`
+  - Enables CORS with security settings
   - Starts server on port 3000
 
 #### `src/app.module.ts`
 - **Purpose**: Root module configuration
 - **Key Features**:
-  - Imports all feature modules
+  - Imports all feature modules (Database, Auth, Users)
   - Configures global ConfigModule
+  - Applies security and rate limiting middleware
   - Exports root controller and service
 
 #### `src/app.controller.ts`
@@ -114,6 +164,56 @@ nestjs-adv-poc/
 #### `src/app.service.ts`
 - **Purpose**: Root application service
 - **Methods**: `getHello()` - Returns welcome message
+
+---
+
+### 🗄️ Database Module (`src/database/`)
+
+#### `database.module.ts`
+- **Purpose**: TypeORM database configuration
+- **Key Features**:
+  - PostgreSQL database connection
+  - Entity registration (UserEntity)
+  - Database synchronization
+  - Environment-based configuration
+
+#### `seed.service.ts`
+- **Purpose**: Database seeding service
+- **Key Features**:
+  - Creates initial admin user
+  - Seeds default data on application startup
+  - Handles database initialization
+
+---
+
+### 🔒 Security Module (`src/security/`)
+
+#### `security.config.ts`
+- **Purpose**: Centralized security configuration
+- **Key Features**:
+  - Helmet.js security headers configuration
+  - CORS settings with environment awareness
+  - Content Security Policy (CSP)
+  - HTTP Strict Transport Security (HSTS)
+  - XSS and clickjacking protection
+
+---
+
+### 🛡️ Security Middleware (`src/common/middleware/`)
+
+#### `security.middleware.ts`
+- **Purpose**: Additional security headers middleware
+- **Key Features**:
+  - Sets security headers (X-Frame-Options, X-Content-Type-Options)
+  - Configures cache control
+  - Removes X-Powered-By header
+
+#### `rate-limit.middleware.ts`
+- **Purpose**: Rate limiting middleware
+- **Key Features**:
+  - General rate limiting (100 requests/15min)
+  - Authentication rate limiting (5 requests/15min)
+  - IP-based request throttling
 
 ---
 
@@ -196,14 +296,14 @@ nestjs-adv-poc/
 #### `users.service.ts`
 - **Purpose**: User management business logic
 - **Key Methods**:
-  - `create()` - Creates new user
+  - `create()` - Creates new user with password hashing
   - `findAll()` - Returns all users (without passwords)
   - `findById()` - Finds user by ID
   - `findByEmail()` - Finds user by email
   - `update()` - Updates user data
   - `remove()` - Deletes user
   - `activate()/deactivate()` - User status management
-- **Features**: In-memory storage with mock data
+- **Features**: TypeORM integration with PostgreSQL database
 
 #### `users.controller.ts`
 - **Purpose**: User management endpoints
@@ -318,6 +418,31 @@ nestjs-adv-poc/
 - **Purpose**: End-to-end test configuration
 - **Features**: Jest configuration for E2E tests
 
+#### `test-app.module.ts`
+- **Purpose**: Test application module configuration
+- **Features**: Imports TestDatabaseModule for E2E tests
+
+#### `test-database.module.ts`
+- **Purpose**: Test database configuration
+- **Features**: 
+  - Separate test database connection
+  - Schema synchronization for tests
+  - Test-specific TypeORM configuration
+
+### 📁 Test Scripts (`test/scripts/`)
+
+#### `setup-test-db.js`
+- **Purpose**: Test database setup script
+- **Features**: Creates test database if it doesn't exist
+
+#### `reset-test-db.js`
+- **Purpose**: Test database reset script
+- **Features**: Drops and recreates test database for clean test runs
+
+#### `setup-db.md`
+- **Purpose**: Database setup documentation
+- **Features**: Instructions for setting up PostgreSQL database
+
 #### `app.e2e-spec.ts`
 - **Purpose**: Basic application E2E tests
 - **Test Coverage**:
@@ -370,6 +495,11 @@ nestjs-adv-poc/
 - Password hashing with bcrypt
 - Role-based and permission-based authorization
 - Input validation and sanitization
+- Helmet.js security headers
+- Rate limiting and throttling
+- CORS protection
+- Content Security Policy (CSP)
+- XSS and clickjacking protection
 
 ---
 
@@ -377,8 +507,21 @@ nestjs-adv-poc/
 
 1. **Install dependencies**: `npm install`
 2. **Copy environment file**: `cp env.example .env`
-3. **Start development server**: `npm run start:dev`
-4. **Run tests**: `npm test` (unit) or `npm run test:e2e` (E2E)
-5. **Access Swagger docs**: http://localhost:3000/api
+3. **Setup database**: Follow instructions in `test/scripts/setup-db.md`
+4. **Start development server**: `npm run start:dev`
+5. **Run tests**: 
+   - Unit tests: `npm test`
+   - E2E tests: `npm run test:e2e`
+   - Individual E2E tests: `npm run test:e2e:app`, `npm run test:e2e:auth`, `npm run test:e2e:users`
+6. **Access Swagger docs**: http://localhost:3000/api-docs
+7. **Database scripts**:
+   - Setup test database: `npm run test:db:setup`
+   - Reset test database: `npm run test:db:reset`
 
-This project serves as a comprehensive example of advanced NestJS concepts and best practices for building secure, scalable applications with proper authentication, authorization, and testing.
+## 📚 Additional Documentation
+
+- **Security Features**: See `SECURITY.md` for detailed security implementation
+- **Database Setup**: See `test/scripts/setup-db.md` for PostgreSQL configuration
+- **API Documentation**: Available at http://localhost:3000/api-docs when running
+
+This project serves as a comprehensive example of advanced NestJS concepts and best practices for building secure, scalable applications with proper authentication, authorization, testing, and security features.
